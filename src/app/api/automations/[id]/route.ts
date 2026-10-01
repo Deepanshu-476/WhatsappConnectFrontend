@@ -1,0 +1,175 @@
+import { NextResponse } from 'next/server'
+import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { dataAdmin } from '@/lib/automations/admin-client'
+import {
+  loadStepsTree,
+  replaceSteps,
+  type BuilderStepInput,
+} from '@/lib/automations/steps-tree'
+import {
+  validateStepsForActivation,
+  validateTriggerForActivation,
+} from '@/lib/automations/validate'
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+  let ctx: Awaited<ReturnType<typeof requireRole>>
+  try {
+    ctx = await requireRole('viewer')
+  } catch (err) {
+    return toErrorResponse(err)
+  }
+
+  const admin = dataAdmin()
+  let { data: automation, error } = await admin
+    .from('automations')
+    .select('*')
+    .eq('id', id)
+    .eq('account_id', ctx.accountId)
+    .maybeSingle()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!automation) {
+    const { data: looseAutomation, error: looseErr } = await admin
+      .from('automations')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+    if (looseErr) return NextResponse.json({ error: looseErr.message }, { status: 500 })
+    if (
+      looseAutomation &&
+      !looseAutomation.account_id &&
+      (!looseAutomation.user_id || looseAutomation.user_id === ctx.userId)
+    ) {
+      const { error: repairErr } = await admin
+        .from('automations')
+        .update({ account_id: ctx.accountId, user_id: looseAutomation.user_id ?? ctx.userId })
+        .eq('id', id)
+      if (repairErr) return NextResponse.json({ error: repairErr.message }, { status: 500 })
+      automation = {
+        ...looseAutomation,
+        account_id: ctx.accountId,
+        user_id: looseAutomation.user_id ?? ctx.userId,
+      }
+    }
+  }
+  if (!automation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const steps = await loadStepsTree(id)
+  return NextResponse.json({ automation, steps })
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+
+  // Editing an automation is a write — the account scoping automations_update policy
+  // requires `agent`, but this route mutates via the service-role client
+  // which bypasses account scoping, so enforce the role here.
+  let ctx: Awaited<ReturnType<typeof requireRole>>
+  try {
+    ctx = await requireRole('agent')
+  } catch (err) {
+    return toErrorResponse(err)
+  }
+
+  const body = await request.json().catch(() => null)
+  if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+
+  const admin = dataAdmin()
+
+  // Ownership check before we touch anything. Load the fields we need
+  // to compute the post-patch "effective" state for validation.
+  const { data: existing } = await admin
+    .from('automations')
+    .select('id, is_active, trigger_type, trigger_config')
+    .eq('id', id)
+    .eq('account_id', ctx.accountId)
+    .maybeSingle()
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const update: Record<string, unknown> = {}
+  for (const k of [
+    'name',
+    'description',
+    'trigger_type',
+    'trigger_config',
+    'is_active',
+  ] as const) {
+    if (k in body) update[k] = body[k]
+  }
+
+  // If this PATCH leaves the automation active (either explicitly
+  // activating it OR editing an already-active one), validate the
+  // merged configuration first. Activation is the natural gate — drafts
+  // are still allowed to be incomplete.
+  const willBeActive =
+    typeof update.is_active === 'boolean' ? update.is_active : existing.is_active
+  if (willBeActive) {
+    const mergedTriggerType = (update.trigger_type ?? existing.trigger_type) as string
+    const mergedTriggerConfig = update.trigger_config ?? existing.trigger_config
+    const mergedSteps = Array.isArray(body.steps)
+      ? (body.steps as { step_type: string; step_config: Record<string, unknown> }[])
+      : await loadStepsTree(id)
+    const issues = [
+      ...validateTriggerForActivation(mergedTriggerType, mergedTriggerConfig),
+      ...validateStepsForActivation(mergedSteps),
+    ]
+    if (issues.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot keep automation active with invalid configuration',
+          issues,
+        },
+        { status: 400 },
+      )
+    }
+  }
+
+  if (Object.keys(update).length > 0) {
+    const { error: updErr } = await admin
+      .from('automations')
+      .update(update)
+      .eq('id', id)
+      .eq('account_id', ctx.accountId)
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+  }
+
+  if (Array.isArray(body.steps)) {
+    const err = await replaceSteps(id, body.steps as BuilderStepInput[])
+    if (err) return NextResponse.json({ error: err }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+
+  // Deleting an automation is a write — enforce `agent` (the service-role
+  // client below bypasses the agent-gated automations_delete account scoping).
+  let ctx: Awaited<ReturnType<typeof requireRole>>
+  try {
+    ctx = await requireRole('agent')
+  } catch (err) {
+    return toErrorResponse(err)
+  }
+
+  const { error } = await dataAdmin()
+    .from('automations')
+    .delete()
+    .eq('id', id)
+    .eq('account_id', ctx.accountId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
