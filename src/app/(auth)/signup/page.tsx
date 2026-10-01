@@ -137,7 +137,7 @@ function SignupPageInner() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
-          <div className="mb-3 w-full">
+          <div className="mb-0 w-full">
             {inviteToken ? (
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                 <UsersRound className="h-6 w-6 text-primary" />

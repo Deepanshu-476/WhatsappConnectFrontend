@@ -30,7 +30,7 @@ export function BrandLogo({ variant = "sidebar", className }: BrandLogoProps) {
         src={LOGO_SRC}
         alt="CIISConnect"
         className={cn(
-          "h-auto w-28 shrink-0 object-contain",
+          "h-8 w-auto max-w-28 shrink-0 object-contain",
           className,
         )}
         width={2164}
@@ -44,7 +44,7 @@ export function BrandLogo({ variant = "sidebar", className }: BrandLogoProps) {
     <img
       src={LOGO_SRC}
       alt="CIISConnect"
-      className={cn("h-auto w-36 shrink-0 object-contain", className)}
+      className={cn("h-8 w-auto max-w-[168px] shrink-0 object-contain", className)}
       width={2164}
       height={727}
       draggable={false}

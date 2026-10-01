@@ -83,7 +83,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
-          <BrandLogo variant="auth" className="mb-3 w-full" />
+          <BrandLogo variant="auth" className="mb-0 w-full" />
           <CardTitle className="text-xl text-foreground">{t("title")}</CardTitle>
           <CardDescription className="text-muted-foreground">
             {t("desc")}
