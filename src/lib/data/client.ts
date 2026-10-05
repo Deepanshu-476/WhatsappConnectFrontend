@@ -287,11 +287,27 @@ export const clientInstance = {
         };
       }
     },
-    async resetPasswordForEmail(_email: string) {
-      return { data: {}, error: null };
+    async resetPasswordForEmail(email: string) {
+      try {
+        const data = await apiFetch("/api/auth/forgot-password", {
+          method: "POST",
+          json: { email },
+        });
+        return { data, error: null };
+      } catch (err: any) {
+        return { data: null, error: { message: err.message } };
+      }
     },
-    async updateUser(_attrs: any) {
-      return { data: { user: null }, error: null };
+    async updateUser(attrs: any) {
+      try {
+        const data = await apiFetch<{ ok?: boolean }>("/api/auth/reset-password", {
+          method: "POST",
+          json: attrs,
+        });
+        return { data: { user: null, ...data }, error: null };
+      } catch (err: any) {
+        return { data: { user: null }, error: { message: err.message } };
+      }
     },
   },
   from(table: string) {
