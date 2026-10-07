@@ -4,17 +4,20 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/data/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import type { Contact, Deal, ContactNote, Tag, Reminder } from "@/types";
 import {
   Phone,
   Mail,
   Copy,
   Check,
-  User,
   Tag as TagIcon,
   DollarSign,
   StickyNote,
   Plus,
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,13 +41,21 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
+  // Follow-up reminders
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [newReminderTitle, setNewReminderTitle] = useState("");
+  const [newReminderDue, setNewReminderDue] = useState("");
+  const [addingReminder, setAddingReminder] = useState(false);
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [mountedAt] = useState(() => Date.now());
+
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const backend = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, notes, tags, and reminders in parallel
+    const [dealsRes, notesRes, tagsRes, remindersRes] = await Promise.all([
       backend
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -59,10 +70,16 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      backend
+        .from("reminders")
+        .select("*")
+        .eq("contact_id", contact.id)
+        .order("due_date", { ascending: true }),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
+    if (remindersRes.data) setReminders(remindersRes.data);
     if (tagsRes.data) {
       const mapped = tagsRes.data
         .filter((ct: Record<string, unknown>) => ct.tags)
@@ -122,6 +139,59 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     }
     setAddingNote(false);
   }, [contact, newNote, accountId]);
+
+  const handleAddReminder = useCallback(async () => {
+    if (!contact || !newReminderTitle.trim()) return;
+    setAddingReminder(true);
+    const backend = createClient();
+    const dueDate = newReminderDue || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await backend
+      .from("reminders")
+      .insert({
+        contact_id: contact.id,
+        account_id: accountId,
+        title: newReminderTitle.trim(),
+        due_date: dueDate,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setReminders((prev) => [...prev, data]);
+      setNewReminderTitle("");
+      setNewReminderDue("");
+      setShowAddReminder(false);
+    }
+    setAddingReminder(false);
+  }, [contact, newReminderTitle, newReminderDue, accountId]);
+
+  const handleToggleReminder = useCallback(async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "completed" ? "pending" : "completed";
+    const backend = createClient();
+    const { error } = await backend
+      .from("reminders")
+      .update({ status: nextStatus })
+      .eq("id", id);
+
+    if (!error) {
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: nextStatus } : r))
+      );
+    }
+  }, []);
+
+  const handleDeleteReminder = useCallback(async (id: string) => {
+    const backend = createClient();
+    const { error } = await backend
+      .from("reminders")
+      .delete()
+      .eq("id", id);
+
+    if (!error) {
+      setReminders((prev) => prev.filter((r) => r.id !== id));
+    }
+  }, []);
 
   if (!contact) {
     return (
@@ -253,6 +323,113 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="my-4 border-t border-border" />
+
+          {/* Follow-up Reminders */}
+          <div>
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <CalendarClock className="h-3.5 w-3.5 text-primary" />
+                <span>Follow-ups & Reminders</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddReminder((v) => !v)}
+                className="text-muted-foreground hover:text-foreground text-xs flex items-center gap-1"
+                title="Add Reminder"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {showAddReminder && (
+              <div className="mt-2 space-y-2 rounded-lg border border-border bg-muted/40 p-2.5">
+                <input
+                  type="text"
+                  value={newReminderTitle}
+                  onChange={(e) => setNewReminderTitle(e.target.value)}
+                  placeholder="e.g. Call back about pricing"
+                  className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary"
+                />
+                <input
+                  type="datetime-local"
+                  value={newReminderDue}
+                  onChange={(e) => setNewReminderDue(e.target.value)}
+                  className="w-full rounded border border-border bg-background px-2.5 py-1 text-xs text-foreground outline-none focus:border-primary"
+                />
+                <div className="flex justify-end gap-1.5 pt-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs px-2"
+                    onClick={() => setShowAddReminder(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs px-2.5 bg-primary text-primary-foreground"
+                    onClick={handleAddReminder}
+                    disabled={!newReminderTitle.trim() || addingReminder}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-2 space-y-1.5">
+              {reminders.length === 0 ? (
+                <p className="px-1 text-xs text-muted-foreground">No pending reminders</p>
+              ) : (
+                reminders.map((r) => {
+                  const isDone = r.status === "completed";
+                  const isOverdue = !isDone && Boolean(r.due_date && new Date(r.due_date).getTime() < mountedAt);
+                  return (
+                    <div
+                      key={r.id}
+                      className={cn(
+                        "group flex items-start justify-between gap-2 rounded-lg border border-border/60 p-2 text-xs transition-colors",
+                        isDone ? "bg-muted/30 opacity-60" : "bg-card hover:bg-muted/40"
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleToggleReminder(r.id, r.status)}
+                        className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary"
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("font-medium text-foreground truncate", isDone && "line-through text-muted-foreground")}>
+                          {r.title}
+                        </p>
+                        {r.due_date && (
+                          <p className={cn("text-[10px] mt-0.5", isOverdue ? "text-destructive font-medium" : "text-muted-foreground")}>
+                            {format(new Date(r.due_date), "MMM d, yyyy HH:mm")}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReminder(r.id)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

@@ -1,11 +1,13 @@
 import {
   Coins,
   FileText,
+  Layers3,
   KeyRound,
   LayoutGrid,
   Palette,
   PlugZap,
   Shield,
+  SlidersHorizontal,
   Tags,
   User,
   UsersRound,
@@ -23,6 +25,7 @@ import {
  */
 export const SETTINGS_SECTIONS = [
   'overview',
+  'crm',
   'profile',
   'security',
   'appearance',
@@ -33,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'deals',
   'members',
   'api',
+  'addons',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -49,6 +53,7 @@ export interface SectionMeta {
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   overview: { id: 'overview', label: 'Overview', icon: LayoutGrid, group: 'top' },
+  crm: { id: 'crm', label: 'CRM Settings', icon: SlidersHorizontal, group: 'top' },
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
@@ -59,6 +64,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
+  addons: { id: 'addons', label: 'Add-ons', icon: Layers3, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
@@ -79,6 +85,7 @@ function isSection(value: string | null): value is SettingsSection {
  */
 export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
+  if (raw === 'crm' || raw === 'crm-settings') return 'crm';
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
 }

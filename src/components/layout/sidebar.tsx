@@ -11,20 +11,22 @@ import {
   Bell,
   Bot,
   Crown,
+  Activity,
+  ClipboardList,
+  FileText,
   GitBranch,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   MessageSquare,
-  Radio,
   Settings,
   Shield,
+  SlidersHorizontal,
   User,
   UserCog,
   Users,
   UsersRound,
-  Workflow,
   X,
-  Zap,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 import { BrandLogo } from "@/components/brand-logo";
@@ -81,7 +83,8 @@ import {
 
 interface NavItem {
   href: string;
-  labelKey: string;
+  labelKey?: string;
+  label?: string;
   icon: typeof LayoutDashboard;
   /**
    * When true, the nav row renders a small "Beta" chip after the label.
@@ -92,18 +95,23 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
-  { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
-  { href: "/notifications", labelKey: "notifications", icon: Bell },
+  { href: "/inbox", label: "Chat", icon: MessageSquare },
+  { href: "/leads", label: "Leads", icon: GitBranch },
+  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/contacts", labelKey: "contacts", icon: Users },
-  { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
-  { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
-  { href: "/automations", labelKey: "automations", icon: Zap },
-  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
-  { href: "/agents", labelKey: "aiAgents", icon: Bot },
+  { href: "/activities", label: "Activities", icon: Activity },
 ];
 
-const bottomNavItems = [
+const quickToolItems: NavItem[] = [
+  { href: "/templates", label: "Templates", icon: FileText },
+  { href: "/forms", label: "Forms", icon: ClipboardList },
+  { href: "/chatbot", label: "Chatbot", icon: Bot },
+];
+
+const bottomNavItems: NavItem[] = [
+  { href: "/settings/crm", label: "CRM Settings", icon: SlidersHorizontal },
   { href: "/settings", labelKey: "settings", icon: Settings },
+  { href: "/notifications", labelKey: "notifications", icon: Bell },
 ];
 
 interface SidebarProps {
@@ -232,7 +240,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{t(item.labelKey as string)}</span>
+                    <span className="flex-1">{item.label ?? t(item.labelKey as string)}</span>
                     {item.beta && (
                       <span
                         aria-label={t("beta")}
@@ -266,6 +274,35 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
           <div className="my-4 border-t border-border" />
 
+          <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+            Quick tools
+          </div>
+          <ul className="flex flex-col gap-1">
+            {quickToolItems.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span className="flex-1">{item.label ?? t(item.labelKey as string)}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="my-4 border-t border-border" />
+
           <ul className="flex flex-col gap-1">
             {bottomNavItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
@@ -281,7 +318,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    {t(item.labelKey as string)}
+                    {item.label ?? t(item.labelKey as string)}
                   </Link>
                 </li>
               );

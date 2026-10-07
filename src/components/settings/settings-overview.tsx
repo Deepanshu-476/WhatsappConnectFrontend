@@ -159,6 +159,11 @@ export function SettingsOverview({
     subtitle: ReactNode;
   }[] = [
     {
+      section: 'crm',
+      loading: false,
+      subtitle: 'Pipelines, automations, channels and 12 modules',
+    },
+    {
       section: 'whatsapp',
       loading: whatsappLoading,
       subtitle: !whatsapp?.configured ? (

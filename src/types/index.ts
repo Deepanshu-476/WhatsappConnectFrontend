@@ -118,6 +118,7 @@ export interface Contact {
   name?: string;
   email?: string;
   company?: string;
+  lead_status?: string;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -164,6 +165,21 @@ export interface ContactNote {
   user_id: string;
   note_text: string;
   created_at: string;
+}
+
+export interface Reminder {
+  id: string;
+  account_id?: string;
+  user_id?: string;
+  contact_id?: string;
+  conversation_id?: string;
+  title: string;
+  description?: string;
+  due_date: string;
+  status: 'pending' | 'completed';
+  assigned_to?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';

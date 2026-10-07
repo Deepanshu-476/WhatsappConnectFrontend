@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Radio, Plus, Loader2 } from 'lucide-react';
+import { Radio, Plus, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
@@ -180,22 +180,55 @@ export default function BroadcastsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('subtitle')}
           </p>
         </div>
-        <GatedButton
-          canAct={canCreate}
-          gateReason="create broadcasts"
-          onClick={() => router.push('/broadcasts/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/campaigns')}
+            className="border-border text-foreground hover:bg-muted"
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            Go to Campaigns
+          </Button>
+          <GatedButton
+            canAct={canCreate}
+            gateReason="create broadcasts"
+            onClick={() => router.push('/broadcasts/new')}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            {t('newBroadcast')}
+          </GatedButton>
+        </div>
+      </div>
+
+      {/* Campaigns Platform Integration Banner */}
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-primary/10 p-2 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Advanced Marketing Campaigns & Automation</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Looking for audience segmentation, CSV column mapping, campaign scheduling, deliverability rules, and analytics? Use the full Campaigns engine.
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => router.push('/campaigns')}
+          className="shrink-0 bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          <Plus className="h-4 w-4" />
-          {t('newBroadcast')}
-        </GatedButton>
+          Open Campaigns
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {broadcasts.length === 0 ? (

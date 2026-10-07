@@ -19,7 +19,9 @@ import type { DataClient } from '@/lib/data/types';
 export async function reopenClosedConversation(
   db: DataClient,
   conversation: { id: string; status?: string | null },
+  options?: { allowReopen?: boolean },
 ): Promise<boolean> {
+  if (options?.allowReopen === false) return false
   // Nothing to do for open/pending threads, which is the common case —
   // skipping the round trip keeps inbound processing as cheap as it was.
   if (conversation.status !== 'closed') return false

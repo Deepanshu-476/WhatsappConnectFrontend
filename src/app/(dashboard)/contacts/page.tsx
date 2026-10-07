@@ -49,6 +49,7 @@ import {
   SlidersHorizontal,
   Filter,
   X,
+  Download,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -93,6 +94,7 @@ export default function ContactsPage() {
   // Bulk selection (page-scoped — only the loaded rows are selectable)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
@@ -314,6 +316,66 @@ export default function ContactsPage() {
     setBulkDeleteOpen(false);
   }
 
+  const handleExportContacts = useCallback(async (exportOnlySelected = false) => {
+    try {
+      setExporting(true);
+      let targetContacts: ContactWithTags[] = [];
+
+      if (exportOnlySelected && selected.size > 0) {
+        targetContacts = contacts.filter((c) => selected.has(c.id));
+      } else {
+        const { data } = await backend
+          .from('contacts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1000);
+        targetContacts = (data as ContactWithTags[]) || contacts;
+      }
+
+      if (!targetContacts || targetContacts.length === 0) {
+        toast.info('No contacts available to export');
+        return;
+      }
+
+      const headers = ['Name', 'Phone', 'Email', 'Company', 'Lead Status', 'Tags', 'Created At'];
+      const escapeCsv = (val: unknown) => {
+        const str = String(val ?? '');
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const rows = targetContacts.map((c) => [
+        escapeCsv(c.name || ''),
+        escapeCsv(c.phone || ''),
+        escapeCsv(c.email || ''),
+        escapeCsv(c.company || ''),
+        escapeCsv(c.lead_status || ''),
+        escapeCsv((c.tags || []).map((t) => t.name).join('; ')),
+        escapeCsv(c.created_at || ''),
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `contacts_export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${targetContacts.length} contacts successfully`);
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Failed to export contacts');
+    } finally {
+      setExporting(false);
+    }
+  }, [backend, contacts, selected]);
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
@@ -360,6 +422,15 @@ export default function ContactsPage() {
               {t('customFieldsBtn')}
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => handleExportContacts(false)}
+            disabled={exporting || totalCount === 0}
+            className="border-border text-muted-foreground hover:bg-muted"
+          >
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Export
+          </Button>
           <GatedButton
             variant="outline"
             canAct={canEdit}
@@ -512,6 +583,16 @@ export default function ContactsPage() {
               className="text-muted-foreground hover:text-foreground"
             >
               {t('clearSelection')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportContacts(true)}
+              disabled={exporting}
+              className="border-border text-foreground hover:bg-muted"
+            >
+              <Download className="size-4" />
+              Export ({selected.size})
             </Button>
             <GatedButton
               variant="destructive"

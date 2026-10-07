@@ -72,7 +72,7 @@ async function upsertTemplateRow(
   // can't shadow each other's same-named template.
   return backend
     .from('message_templates')
-    .upsert(row, { onConflict: 'user_id,name,language' })
+    .upsert(row, { onConflict: 'account_id,name,language' })
     .select()
     .single()
 }

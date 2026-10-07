@@ -108,4 +108,17 @@ describe('reopenClosedConversation', () => {
     expect(spy).toHaveBeenCalled()
     spy.mockRestore()
   })
+
+  it('respects allowReopen: false option and blocks reopening', async () => {
+    const { client, calls } = stubClient()
+
+    const reopened = await reopenClosedConversation(
+      client,
+      { id: 'conv-1', status: 'closed' },
+      { allowReopen: false },
+    )
+
+    expect(reopened).toBe(false)
+    expect(calls).toEqual([])
+  })
 })
