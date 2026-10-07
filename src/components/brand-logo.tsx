@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
@@ -11,22 +12,22 @@ export function BrandLogo({ variant = "sidebar", className }: BrandLogoProps) {
   if (variant === "auth") {
     return (
       <div className={cn("flex flex-col items-center text-center", className)}>
-        <img
+        <Image
           src={LOGO_SRC}
           alt="CIISConnect"
           className="h-auto w-full max-w-[204px] object-contain"
           width={2164}
           height={727}
+          priority
           draggable={false}
         />
-       
       </div>
     );
   }
 
   if (variant === "mark") {
     return (
-      <img
+      <Image
         src={LOGO_SRC}
         alt="CIISConnect"
         className={cn(
@@ -41,7 +42,7 @@ export function BrandLogo({ variant = "sidebar", className }: BrandLogoProps) {
   }
 
   return (
-    <img
+    <Image
       src={LOGO_SRC}
       alt="CIISConnect"
       className={cn("h-8 w-auto max-w-[168px] shrink-0 object-contain", className)}

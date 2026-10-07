@@ -75,8 +75,8 @@ export function IntegrationGrid({
             ...it.config,
             ...(formApiKey ? { apiKey: formApiKey.trim() } : {}),
           },
-          status: 'connected' as const,
-          enabled: true,
+          status: 'configuration_required' as const,
+          enabled: false,
         };
       }
       return it;
@@ -91,14 +91,14 @@ export function IntegrationGrid({
       if (it.id === id) {
         return {
           ...it,
-          enabled,
-          status: enabled ? ('connected' as const) : ('disconnected' as const),
+          enabled: enabled && it.status === 'connected',
+          status: enabled && it.status === 'connected' ? ('connected' as const) : ('configuration_required' as const),
         };
       }
       return it;
     });
     onChange(updated);
-    toast.info(`Integration ${enabled ? 'enabled' : 'disabled'}`);
+    toast.info(enabled ? 'Integration requires verification before it can be enabled' : 'Integration disabled');
   }
 
   async function testConnection(item: IntegrationItem) {
@@ -113,10 +113,10 @@ export function IntegrationGrid({
       if (res.ok) {
         toast.success(data?.message || `${item.name} connection test succeeded!`);
       } else {
-        toast.error(data?.error || `Failed to connect to ${item.name}`);
+        toast.error(data?.message || data?.error || `Failed to connect to ${item.name}`);
       }
     } catch {
-      toast.success(`${item.name} ping verified.`);
+      toast.error(`${item.name} could not be verified because the backend is unavailable.`);
     } finally {
       setTestingId(null);
     }
@@ -167,6 +167,7 @@ export function IntegrationGrid({
                 </CardTitle>
                 <div className="text-[11px] font-medium text-primary">
                   {item.category}
+                  {item.status === 'configuration_required' ? ' · Configuration required' : ''}
                 </div>
                 <CardDescription className="text-xs text-muted-foreground line-clamp-2 min-h-8">
                   {item.description}
@@ -255,7 +256,7 @@ export function IntegrationGrid({
                 className="h-9 text-sm font-mono"
               />
               <p className="text-[11px] text-muted-foreground">
-                Credentials are never sent in plain-text and cannot be retrieved after saving.
+                Credentials are masked in responses and cannot be retrieved after saving.
               </p>
             </div>
           </div>

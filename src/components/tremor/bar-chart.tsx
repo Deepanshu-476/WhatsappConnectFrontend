@@ -18,8 +18,6 @@
 // Source: https://github.com/tremorlabs/tremor/blob/main/src/components/BarChart/BarChart.tsx
 // ============================================================
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 "use client"
 
 import React from "react"
@@ -73,14 +71,29 @@ function deepEqual<T>(obj1: T, obj2: T): boolean {
   return true
 }
 
+interface ShapeProps {
+  fillOpacity?: number
+  name?: string
+  payload?: Record<string, unknown>
+  value?: number
+  x?: number
+  width?: number
+  y?: number
+  height?: number
+  [key: string]: unknown
+}
+
 const renderShape = (
-  props: any,
-  activeBar: any | undefined,
+  props: ShapeProps,
+  activeBar: Record<string, unknown> | undefined,
   activeLegend: string | undefined,
   layout: string,
 ) => {
   const { fillOpacity, name, payload, value } = props
-  let { x, width, y, height } = props
+  let x = props.x ?? 0
+  let width = props.width ?? 0
+  let y = props.y ?? 0
+  let height = props.height ?? 0
 
   if (layout === "horizontal" && height < 0) {
     y += height
@@ -386,8 +399,13 @@ const Legend = React.forwardRef<HTMLOListElement, LegendProps>((props, ref) => {
 
 Legend.displayName = "Legend"
 
+interface LegendEntry {
+  value?: string
+  type?: string
+}
+
 const ChartLegend = (
-  { payload }: any,
+  { payload }: { payload?: readonly LegendEntry[] },
   categoryColors: Map<string, AvailableChartColorsKeys>,
   setLegendHeight: React.Dispatch<React.SetStateAction<number>>,
   activeLegend: string | undefined,
@@ -404,7 +422,10 @@ const ChartLegend = (
     setLegendHeight(calculateHeight(legendRef.current?.clientHeight))
   })
 
-  const filteredPayload = payload.filter((item: any) => item.type !== "none")
+  const filteredPayload = (payload ?? []).filter(
+    (item): item is LegendEntry & { value: string } =>
+      item.type !== "none" && typeof item.value === "string",
+  )
 
   const paddingLeft =
     legendPosition === "left" && yAxisWidth ? yAxisWidth - 8 : 0
@@ -423,9 +444,9 @@ const ChartLegend = (
       )}
     >
       <Legend
-        categories={filteredPayload.map((entry: any) => entry.value)}
-        colors={filteredPayload.map((entry: any) =>
-          categoryColors.get(entry.value),
+        categories={filteredPayload.map((entry) => entry.value)}
+        colors={filteredPayload.map(
+          (entry) => categoryColors.get(entry.value) ?? "blue",
         )}
         onClickLegendItem={onClick}
         activeLegend={activeLegend}
@@ -445,7 +466,7 @@ type PayloadItem = {
   index: string
   color: AvailableChartColorsKeys
   type?: string
-  payload: any
+  payload: Record<string, unknown>
 }
 
 interface ChartTooltipProps {
@@ -532,7 +553,7 @@ type BaseEventProps = {
 type BarChartEventProps = BaseEventProps | null | undefined
 
 interface BarChartProps extends React.HTMLAttributes<HTMLDivElement> {
-  data: Record<string, any>[]
+  data: Record<string, unknown>[]
   index: string
   categories: string[]
   colors?: AvailableChartColorsKeys[]
@@ -604,7 +625,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
       undefined,
     )
     const categoryColors = constructCategoryColors(categories, colors)
-    const [activeBar, setActiveBar] = React.useState<any | undefined>(undefined)
+    const [activeBar, setActiveBar] = React.useState<Record<string, unknown> | undefined>(undefined)
     const yAxisDomain = getYAxisDomain(autoMinValue, minValue, maxValue)
     const hasOnValueChange = !!onValueChange
     const stacked = type === "stacked" || type === "percent"
@@ -618,23 +639,30 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
       return `${(value * 100).toFixed(0)}%`
     }
 
-    function onBarClick(data: any, _: any, event: React.MouseEvent) {
+    interface BarClickData {
+      payload?: Record<string, unknown>
+      value?: number | [number, number]
+      tooltipPayload?: Array<{ dataKey?: string }>
+    }
+
+    function onBarClick(data: BarClickData, _: unknown, event: React.MouseEvent) {
       event.stopPropagation()
       if (!onValueChange) return
-      if (deepEqual(activeBar, { ...data.payload, value: data.value })) {
+      const numericVal = Array.isArray(data.value) ? data.value[0] : data.value
+      if (deepEqual(activeBar, { ...(data.payload ?? {}), value: numericVal })) {
         setActiveLegend(undefined)
         setActiveBar(undefined)
         onValueChange?.(null)
       } else {
         setActiveLegend(data.tooltipPayload?.[0]?.dataKey)
         setActiveBar({
-          ...data.payload,
-          value: data.value,
+          ...(data.payload ?? {}),
+          value: numericVal,
         })
         onValueChange?.({
           eventType: "bar",
-          categoryClicked: data.tooltipPayload?.[0]?.dataKey,
-          ...data.payload,
+          categoryClicked: data.tooltipPayload?.[0]?.dataKey ?? "",
+          ...(data.payload ?? {}),
         })
       }
     }
@@ -715,7 +743,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
                     dataKey: index,
                     interval: startEndOnly ? "preserveStartEnd" : intervalType,
                     ticks: startEndOnly
-                      ? [data[0][index], data[data.length - 1][index]]
+                      ? ([data[0]?.[index], data[data.length - 1]?.[index]] as unknown as (string | number)[])
                       : undefined,
                   }
                 : {
@@ -764,7 +792,7 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
                 : {
                     dataKey: index,
                     ticks: startEndOnly
-                      ? [data[0][index], data[data.length - 1][index]]
+                      ? ([data[0]?.[index], data[data.length - 1]?.[index]] as unknown as (string | number)[])
                       : undefined,
                     type: "category",
                     interval: "equidistantPreserveStart",
@@ -794,15 +822,15 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
               }}
               content={({ active, payload, label }) => {
                 const cleanPayload: TooltipProps["payload"] = payload
-                  ? payload.map((item: any) => ({
-                      category: item.dataKey,
-                      value: item.value,
-                      index: item.payload[index],
+                  ? (payload as unknown as Array<{ dataKey?: string; value?: number; type?: string; payload?: Record<string, unknown> }>).map((item) => ({
+                      category: item.dataKey ?? "",
+                      value: Number(item.value ?? 0),
+                      index: String((item.payload as Record<string, unknown> | undefined)?.[index] ?? ""),
                       color: categoryColors.get(
-                        item.dataKey,
+                        item.dataKey ?? "",
                       ) as AvailableChartColorsKeys,
                       type: item.type,
-                      payload: item.payload,
+                      payload: (item.payload as Record<string, unknown>) ?? {},
                     }))
                   : []
 
@@ -871,8 +899,8 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
                 stackId={stacked ? "stack" : undefined}
                 isAnimationActive={false}
                 fill=""
-                shape={(props: any) =>
-                  renderShape(props, activeBar, activeLegend, layout)
+                shape={(props: unknown) =>
+                  renderShape(props as ShapeProps, activeBar, activeLegend, layout)
                 }
                 onClick={onBarClick}
               />

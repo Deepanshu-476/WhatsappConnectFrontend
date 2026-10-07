@@ -19,6 +19,7 @@ import {
   LogOut,
   Megaphone,
   MessageSquare,
+  CreditCard,
   Settings,
   Shield,
   SlidersHorizontal,
@@ -404,6 +405,18 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               >
                 <User className="size-4" />
                 {t("menuProfile")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/settings?tab=billing"
+                    onClick={onClose}
+                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+                  />
+                }
+              >
+                <CreditCard className="size-4" />
+                Billing & Subscription
               </DropdownMenuItem>
               <DropdownMenuItem
                 render={

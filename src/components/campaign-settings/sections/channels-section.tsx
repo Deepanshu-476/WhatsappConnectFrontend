@@ -56,7 +56,7 @@ export function ChannelsSection({ settings, onChange, disabled }: ChannelsSectio
         <SelectSetting
           label="Default Outbound Marketing Channel"
           description="Default WhatsApp business number assigned to newly created campaigns."
-          value={settings.defaultChannelId}
+          value={settings.defaultChannelId ?? ''}
           onChange={(val) => onChange({ defaultChannelId: val })}
           options={channels.map((c) => ({
             label: `${c.name} (${c.phoneNumber})`,
@@ -74,7 +74,9 @@ export function ChannelsSection({ settings, onChange, disabled }: ChannelsSectio
 
         {channels.map((ch) => {
           const isDefault = settings.defaultChannelId === ch.id;
-          const usagePercent = ch.dailyLimit ? Math.round((ch.currentUsage / ch.dailyLimit) * 100) : 0;
+          const usage = ch.currentUsage ?? 0;
+          const dailyLimit = ch.dailyLimit ?? 0;
+          const usagePercent = dailyLimit ? Math.round((usage / dailyLimit) * 100) : 0;
           const isTesting = testingId === ch.id;
 
           return (
@@ -111,11 +113,11 @@ export function ChannelsSection({ settings, onChange, disabled }: ChannelsSectio
                         : 'text-rose-600 bg-rose-500/10 border-rose-500/20'
                     }`}
                   >
-                    Quality: {ch.qualityRating}
+                    Quality: {ch.qualityRating ?? 'Unknown'}
                   </Badge>
 
                   <Badge variant="secondary" className="text-[10px] font-mono">
-                    {ch.messagingLimit}
+                    {ch.messagingLimit ?? 'Limit unknown'}
                   </Badge>
 
                   <div className="flex items-center gap-2 pl-2 border-l border-border/40">
@@ -132,7 +134,7 @@ export function ChannelsSection({ settings, onChange, disabled }: ChannelsSectio
               {/* Tier Usage Bar */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>Daily Dispatch Quota: {ch.currentUsage.toLocaleString()} / {ch.dailyLimit.toLocaleString()} messages</span>
+                  <span>Daily Dispatch Quota: {usage.toLocaleString()} / {dailyLimit.toLocaleString()} messages</span>
                   <span className="font-mono font-medium">{usagePercent}%</span>
                 </div>
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">

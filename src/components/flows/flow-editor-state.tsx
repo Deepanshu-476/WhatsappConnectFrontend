@@ -356,7 +356,7 @@ export function FlowEditorProvider({
     } finally {
       setSaving(false);
     }
-  }, [initialFlow.id, state]);
+  }, [initialFlow.id, state, t]);
 
   // ---- Activate / Pause / Archive ----
   const setStatus = useCallback(
@@ -396,9 +396,7 @@ export function FlowEditorProvider({
       } finally {
         setActivating(false);
       }
-    },
-    [canActivate, save, initialFlow.id],
-  );
+    }, [canActivate, save, initialFlow.id, t]);
 
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {

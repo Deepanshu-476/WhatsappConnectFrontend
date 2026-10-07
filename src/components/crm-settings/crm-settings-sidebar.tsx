@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
   MessageSquare,
   GitBranch,
@@ -16,6 +17,8 @@ import {
   Settings,
   Search,
   ChevronRight,
+  CreditCard,
+  Wallet,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -217,6 +220,26 @@ export function CRMSettingsSidebar({
           })
         )}
       </nav>
+
+      <div className="mt-4 pt-3 border-t border-border px-2 space-y-1">
+        <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Billing & Usage
+        </div>
+        <Link
+          href="/settings?tab=billing"
+          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <CreditCard className="size-3.5 shrink-0" />
+          <span>Billing Management</span>
+        </Link>
+        <Link
+          href="/settings?tab=wallet"
+          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <Wallet className="size-3.5 shrink-0" />
+          <span>My Wallet</span>
+        </Link>
+      </div>
     </aside>
   );
 }

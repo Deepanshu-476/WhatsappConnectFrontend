@@ -45,12 +45,13 @@ async function resolveAccountId(
   return data.account_id as string
 }
 
+import type { DataClient } from '@/lib/data/types'
+
 // Lazy-initialised service-role client. We need it to detect a
 // phone_number_id already claimed by a *different* user — under account scoping,
 // the user's own session can't see other users' rows, so the conflict
 // would be invisible without the service role.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null
+let _adminClient: DataClient | null = null
 function dataAdmin() {
   if (!_adminClient) {
     _adminClient = createAdminClient()

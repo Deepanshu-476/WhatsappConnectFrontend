@@ -20,6 +20,8 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { BackendAddonsPanel } from '@/components/settings/backend-addons-panel';
+import { BillingManagementPanel } from '@/components/billing/billing-management-panel';
+import { WalletPanel } from '@/components/billing/wallet-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -67,6 +69,8 @@ function SettingsPageInner() {
     profile: <ProfileForm />,
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
+    billing: <BillingManagementPanel />,
+    wallet: <WalletPanel />,
     whatsapp: <WhatsAppConfig />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,

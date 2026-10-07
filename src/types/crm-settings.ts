@@ -180,7 +180,7 @@ export interface WhatsAppChannel {
   name: string;
   phoneNumber: string;
   phoneNumberId: string;
-  status: 'connected' | 'disconnected' | 'error' | 'pending';
+  status: 'connected' | 'disconnected' | 'error' | 'pending' | 'configuration_required' | 'unknown';
   webhookUrl: string;
   isDefault: boolean;
   connectedAt?: string;
@@ -188,7 +188,7 @@ export interface WhatsAppChannel {
 
 export interface WhatsAppSettings {
   channels: WhatsAppChannel[];
-  defaultChannelId: string;
+  defaultChannelId: string | null;
   enforceOptOut: boolean;
   optOutKeywords: string[];
 }
@@ -240,8 +240,9 @@ export interface IntegrationItem {
   category: string;
   description: string;
   icon: string;
-  status: 'connected' | 'disconnected';
+  status: 'connected' | 'disconnected' | 'configuration_required';
   enabled: boolean;
+  requiresConfiguration?: boolean;
   webhookUrl?: string;
   config?: Record<string, unknown>;
 }

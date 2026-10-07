@@ -154,8 +154,7 @@ function Metric({
   label: string;
   value: string;
   tooltip: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
+  t: ReturnType<typeof useTranslations>;
 }) {
   return (
     <div className="rounded-lg bg-muted/50 p-3">

@@ -1,5 +1,6 @@
 import {
   Coins,
+  CreditCard,
   FileText,
   Layers3,
   KeyRound,
@@ -11,6 +12,7 @@ import {
   Tags,
   User,
   UsersRound,
+  Wallet,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,6 +31,8 @@ export const SETTINGS_SECTIONS = [
   'profile',
   'security',
   'appearance',
+  'billing',
+  'wallet',
   'whatsapp',
   'templates',
   'quick-replies',
@@ -57,6 +61,8 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
+  billing: { id: 'billing', label: 'Billing & Plans', icon: CreditCard, group: 'account' },
+  wallet: { id: 'wallet', label: 'My Wallet', icon: Wallet, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },
@@ -86,6 +92,8 @@ function isSection(value: string | null): value is SettingsSection {
 export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
   if (raw === 'crm' || raw === 'crm-settings') return 'crm';
+  if (raw === 'subscription' || raw === 'plans' || raw === 'invoices') return 'billing';
+  if (raw === 'credits') return 'wallet';
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
 }

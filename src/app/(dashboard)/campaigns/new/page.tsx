@@ -46,63 +46,53 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-// Available Channels
-const CHANNELS = [
-  { id: 'primary', name: 'Primary WhatsApp API', phone: '+91 9205962984', quality: 'HIGH' },
-  { id: 'support', name: 'Customer Support Line', phone: '+91 8800112233', quality: 'HIGH' },
-];
+interface CampaignChannel {
+  id: string;
+  name: string;
+  phoneNumber?: string;
+  status?: string;
+  connectionState?: string;
+}
 
-// Sample Approved WhatsApp Templates
-const APPROVED_TEMPLATES = [
-  {
-    id: 'diwali_special_offer',
-    name: 'diwali_special_offer',
-    language: 'en_US',
-    category: 'MARKETING',
-    header: 'Festive Season Exclusive Offer! 🪔',
-    body: 'Hello {{1}}, celebrate this festive season with an exclusive 25% discount at {{2}}! Use coupon code FESTIVE25 at checkout.',
-    footer: 'Reply STOP to unsubscribe',
-    buttons: [
-      { type: 'URL', text: 'Claim Offer Now' },
-      { type: 'QUICK_REPLY', text: 'Talk to Sales' },
-    ],
-    variables: ['1', '2'],
-  },
-  {
-    id: 'service_reminder_v2',
-    name: 'service_reminder_v2',
-    language: 'en_US',
-    category: 'UTILITY',
-    header: 'Upcoming Appointment Reminder',
-    body: 'Hi {{1}}, this is a friendly reminder that your scheduled consultation with {{2}} is confirmed for tomorrow. Please let us know if you need to reschedule.',
-    footer: 'Pure Flow Medical Services',
-    buttons: [{ type: 'QUICK_REPLY', text: 'Confirm Appointment' }],
-    variables: ['1', '2'],
-  },
-  {
-    id: 'order_status_update',
-    name: 'order_status_update',
-    language: 'en_US',
-    category: 'UTILITY',
-    header: 'Your Order Has Shipped 📦',
-    body: 'Hello {{1}}, great news! Your order {{2}} has been dispatched and is on its way. Track your package live using the link below.',
-    footer: 'Thank you for shopping with us',
-    buttons: [{ type: 'URL', text: 'Track Order' }],
-    variables: ['1', '2'],
-  },
-  {
-    id: 'vip_exclusive_invite',
-    name: 'vip_exclusive_invite',
-    language: 'en_US',
-    category: 'MARKETING',
-    header: 'VIP Member Exclusive Invitation',
-    body: 'Dear {{1}}, as a valued VIP partner at {{2}}, you are cordially invited to our exclusive product preview event.',
-    footer: 'Valid for active members only',
-    buttons: [{ type: 'QUICK_REPLY', text: 'RSVP Now' }],
-    variables: ['1', '2'],
-  },
-];
+interface CampaignTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  status: string;
+  header?: string;
+  body: string;
+  footer?: string;
+  buttons: Array<{ type: string; text: string }>;
+  variables: string[];
+}
 
+function templateBody(template: Record<string, unknown>): string {
+  if (typeof template.body_text === 'string') return template.body_text;
+  if (typeof template.body === 'string') return template.body;
+  const components = Array.isArray(template.components) ? template.components : [];
+  const body = components.find((item): item is { type?: string; text?: string } => {
+    return typeof item === 'object' && item !== null && (item as { type?: string }).type === 'BODY';
+  });
+  return body?.text ?? '';
+}
+
+function normalizeTemplate(raw: Record<string, unknown>): CampaignTemplate {
+  const body = templateBody(raw);
+  const variables = Array.from(body.matchAll(/\{\{(\d+)\}\}/g)).map((match) => match[1]);
+  return {
+    id: String(raw.id ?? raw._id ?? ''),
+    name: String(raw.name ?? ''),
+    language: String(raw.language ?? 'en_US'),
+    category: String(raw.category ?? ''),
+    status: String(raw.status ?? ''),
+    header: typeof raw.header_content === 'string' ? raw.header_content : undefined,
+    body,
+    footer: typeof raw.footer_text === 'string' ? raw.footer_text : undefined,
+    buttons: Array.isArray(raw.buttons) ? (raw.buttons as Array<{ type: string; text: string }>) : [],
+    variables,
+  };
+}
 // Variable Mapping Options
 const VARIABLE_OPTIONS = [
   { value: 'firstName', label: 'First Name' },
@@ -144,9 +134,13 @@ export default function NewCampaignWizard() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [launching, setLaunching] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [channels, setChannels] = useState<CampaignChannel[]>([]);
+  const [templates, setTemplates] = useState<CampaignTemplate[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   // Step 1: Campaign Details
-  const [selectedChannel, setSelectedChannel] = useState(CHANNELS[0].id);
+  const [selectedChannel, setSelectedChannel] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [campaignType, setCampaignType] = useState<'single' | 'drip'>('single');
@@ -161,15 +155,15 @@ export default function NewCampaignWizard() {
   ]);
   const [validatingAudience, setValidatingAudience] = useState(false);
   const [audienceStats, setAudienceStats] = useState({
-    total: 1250,
-    eligibleCount: 1180,
-    optedOutCount: 40,
-    invalidCount: 20,
-    duplicateCount: 10,
+    total: 0,
+    eligibleCount: 0,
+    optedOutCount: 0,
+    invalidCount: 0,
+    duplicateCount: 0,
   });
 
   // Step 3: WhatsApp Template & Variables
-  const [selectedTemplateId, setSelectedTemplateId] = useState(APPROVED_TEMPLATES[0].id);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [variableMappings, setVariableMappings] = useState<Record<string, string>>({
     '1': 'firstName',
     '2': 'company',
@@ -188,8 +182,46 @@ export default function NewCampaignWizard() {
   const [batchSize, setBatchSize] = useState(50);
 
   // Active Template Object
-  const activeTemplate =
-    APPROVED_TEMPLATES.find((t) => t.id === selectedTemplateId) || APPROVED_TEMPLATES[0];
+  const selectedChannelRecord = channels.find((c) => c.id === selectedChannel) || null;
+  const activeTemplate = templates.find((t) => t.id === selectedTemplateId) || null;
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      setCatalogError(null);
+      try {
+        const [channelRes, templateRes] = await Promise.all([
+          fetch('/api/channels', { cache: 'no-store' }),
+          fetch('/api/templates', { cache: 'no-store' }),
+        ]);
+        const channelPayload = await channelRes.json().catch(() => null);
+        const templatePayload = await templateRes.json().catch(() => null);
+        if (!channelRes.ok) throw new Error(channelPayload?.error || 'Failed to load WhatsApp channels');
+        if (!templateRes.ok) throw new Error(templatePayload?.error || 'Failed to load WhatsApp templates');
+
+        const nextChannels = (channelPayload?.channels || channelPayload?.data || []) as CampaignChannel[];
+        const nextTemplates = ((templatePayload?.templates || templatePayload?.data || []) as Record<string, unknown>[])
+          .map(normalizeTemplate)
+          .filter((template) => template.id && template.name);
+
+        if (!mounted) return;
+        setChannels(nextChannels);
+        setTemplates(nextTemplates);
+        setSelectedChannel((current) => current || nextChannels.find((c) => c.status === 'connected')?.id || nextChannels[0]?.id || '');
+        setSelectedTemplateId((current) => current || nextTemplates.find((t) => t.status.toUpperCase() === 'APPROVED')?.id || nextTemplates[0]?.id || '');
+      } catch (err) {
+        if (!mounted) return;
+        setCatalogError(err instanceof Error ? err.message : 'Failed to load campaign catalog');
+      } finally {
+        if (mounted) setCatalogLoading(false);
+      }
+    }
+    void loadCatalog();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Restore saved draft on mount
   useEffect(() => {
@@ -254,15 +286,17 @@ export default function NewCampaignWizard() {
       if (res.ok) {
         const data = await res.json();
         setAudienceStats({
-          total: data.total ?? data.totalContacts ?? 1250,
-          eligibleCount: data.eligible ?? data.eligibleCount ?? 1180,
-          optedOutCount: data.optedOut ?? data.optedOutCount ?? 40,
-          invalidCount: data.invalid ?? data.invalidCount ?? 20,
-          duplicateCount: data.duplicate ?? data.duplicateCount ?? 10,
+          total: data.total ?? data.totalContacts ?? 0,
+          eligibleCount: data.eligible ?? data.eligibleCount ?? 0,
+          optedOutCount: data.optedOut ?? data.optedOutCount ?? 0,
+          invalidCount: data.invalid ?? data.invalidCount ?? 0,
+          duplicateCount: data.duplicate ?? data.duplicateCount ?? 0,
         });
+      } else {
+        toast.error('Audience count could not be verified.');
       }
     } catch {
-      // Soft fallback
+      toast.error('Audience count could not be verified because the backend is unavailable.');
     } finally {
       setValidatingAudience(false);
     }
@@ -292,6 +326,7 @@ export default function NewCampaignWizard() {
 
   // Generate live WhatsApp preview text
   const getRenderedPreviewBody = () => {
+    if (!activeTemplate) return 'Select an approved WhatsApp template to preview this campaign.';
     let body = activeTemplate.body;
     const sampleValues: Record<string, string> = {
       firstName: 'Rahul',
@@ -325,6 +360,10 @@ export default function NewCampaignWizard() {
     } else if (step === 2) {
       setStep(3);
     } else if (step === 3) {
+      if (!activeTemplate) {
+        toast.error('Select an approved WhatsApp template before continuing.');
+        return;
+      }
       // Validate template variables are all mapped
       const unmapped = activeTemplate.variables.filter((v) => !variableMappings[v]);
       if (unmapped.length > 0) {
@@ -350,6 +389,14 @@ export default function NewCampaignWizard() {
 
   // Final Campaign Launch
   const handleFinalLaunch = async () => {
+    if (!activeTemplate || !selectedChannelRecord) {
+      toast.error('Select a WhatsApp channel and approved template before launch.');
+      return;
+    }
+    if (selectedChannelRecord.status !== 'connected' || selectedChannelRecord.connectionState !== 'connected') {
+      toast.error('WhatsApp channel configuration is required before this campaign can be launched.');
+      return;
+    }
     setLaunching(true);
     try {
       const scheduledAt =
@@ -361,7 +408,8 @@ export default function NewCampaignWizard() {
         name: name.trim(),
         description: description.trim(),
         type: campaignType,
-        channel: CHANNELS.find((c) => c.id === selectedChannel) || CHANNELS[0],
+        channelId: selectedChannelRecord.id,
+        templateId: activeTemplate.id,
         status: scheduleMode === 'now' ? 'running' : 'scheduled',
         template: {
           name: activeTemplate.name,
@@ -581,13 +629,20 @@ export default function NewCampaignWizard() {
                         <SelectValue placeholder="Select channel" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CHANNELS.map((ch) => (
+                        {channels.map((ch) => (
                           <SelectItem key={ch.id} value={ch.id} className="text-xs">
-                            {ch.name} ({ch.phone})
+                            {ch.name} ({ch.phoneNumber || 'No phone'})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {catalogLoading && <p className="text-[11px] text-muted-foreground">Loading channels...</p>}
+                    {catalogError && <p className="text-[11px] text-rose-500">{catalogError}</p>}
+                    {selectedChannelRecord && selectedChannelRecord.status !== 'connected' && (
+                      <p className="text-[11px] text-amber-600">
+                        This channel is not verified. WhatsApp channel configuration is required before launch.
+                      </p>
+                    )}
                   </div>
 
                   {/* Campaign Name */}
@@ -910,7 +965,7 @@ export default function NewCampaignWizard() {
                       Approved Templates *
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {APPROVED_TEMPLATES.map((tmpl) => (
+                      {templates.map((tmpl) => (
                         <div
                           key={tmpl.id}
                           onClick={() => {
@@ -933,7 +988,7 @@ export default function NewCampaignWizard() {
                               {tmpl.name}
                             </span>
                             <Badge variant="outline" className="text-[9px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
-                              Approved
+                              {tmpl.status || 'Unknown'}
                             </Badge>
                           </div>
                           <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
@@ -941,9 +996,9 @@ export default function NewCampaignWizard() {
                           </p>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-2">
                             <span>{tmpl.category}</span>
-                            <span>•</span>
+                            <span>â€¢</span>
                             <span>{tmpl.language}</span>
-                            <span>•</span>
+                            <span>â€¢</span>
                             <span>{tmpl.variables.length} variable(s)</span>
                           </div>
                         </div>
@@ -963,7 +1018,7 @@ export default function NewCampaignWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      {activeTemplate.variables.map((v) => (
+                      {(activeTemplate?.variables ?? []).map((v) => (
                         <div
                           key={v}
                           className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-muted/20"
@@ -1235,7 +1290,7 @@ export default function NewCampaignWizard() {
                       <div className="space-y-1 text-muted-foreground">
                         <p><strong className="text-foreground">Name:</strong> {name}</p>
                         <p><strong className="text-foreground">Type:</strong> {campaignType === 'single' ? 'One-time Campaign' : 'Drip Campaign'}</p>
-                        <p><strong className="text-foreground">Channel:</strong> {CHANNELS.find((c) => c.id === selectedChannel)?.name}</p>
+                        <p><strong className="text-foreground">Channel:</strong> {selectedChannelRecord?.name || 'Not selected'}</p>
                       </div>
                     </div>
 
@@ -1251,9 +1306,9 @@ export default function NewCampaignWizard() {
                     <div className="p-3.5 rounded-xl border border-border/60 bg-muted/20 space-y-2">
                       <span className="font-bold text-foreground">WhatsApp Template</span>
                       <div className="space-y-1 text-muted-foreground">
-                        <p><strong className="text-foreground">Template:</strong> {activeTemplate.name}</p>
-                        <p><strong className="text-foreground">Category:</strong> {activeTemplate.category}</p>
-                        <p><strong className="text-foreground">Variables:</strong> {activeTemplate.variables.length} mapped</p>
+                        <p><strong className="text-foreground">Template:</strong> {activeTemplate?.name || 'Not selected'}</p>
+                        <p><strong className="text-foreground">Category:</strong> {activeTemplate?.category || '-'}</p>
+                        <p><strong className="text-foreground">Variables:</strong> {activeTemplate?.variables.length ?? 0} mapped</p>
                       </div>
                     </div>
 
@@ -1279,7 +1334,7 @@ export default function NewCampaignWizard() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                        <span>All {activeTemplate.variables.length} dynamic template variables are mapped to contact fields</span>
+                        <span>All {activeTemplate?.variables.length ?? 0} dynamic template variables are mapped to contact fields</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -1342,10 +1397,10 @@ export default function NewCampaignWizard() {
               <div className="space-y-0.5">
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold">Account / Channel</span>
                 <p className="font-semibold text-foreground truncate">
-                  {CHANNELS.find((c) => c.id === selectedChannel)?.name}
+                  {selectedChannelRecord?.name || 'No channel selected'}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {CHANNELS.find((c) => c.id === selectedChannel)?.phone}
+                  {selectedChannelRecord?.phoneNumber || 'Configuration required'}
                 </p>
               </div>
 
@@ -1378,7 +1433,7 @@ export default function NewCampaignWizard() {
               <div className="space-y-0.5 pt-2 border-t border-border/40">
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold">Template</span>
                 <p className="font-mono text-xs text-foreground font-semibold">
-                  {activeTemplate.name}
+                  {activeTemplate?.name || 'No template selected'}
                 </p>
               </div>
 
@@ -1409,7 +1464,7 @@ export default function NewCampaignWizard() {
               </div>
               <div className="leading-tight">
                 <p className="text-[11px] font-bold text-foreground">
-                  {CHANNELS.find((c) => c.id === selectedChannel)?.name || 'Verified Business'}
+                  {selectedChannelRecord?.name || 'Verified Business'}
                 </p>
                 <p className="text-[9px] text-emerald-600 font-medium">Online</p>
               </div>
@@ -1417,7 +1472,7 @@ export default function NewCampaignWizard() {
 
             {/* Message Chat Bubble */}
             <div className="p-3 my-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-2 text-xs">
-              {activeTemplate.header && (
+              {activeTemplate && activeTemplate.header && (
                 <p className="font-bold text-foreground text-[11px] border-b border-border/30 pb-1">
                   {activeTemplate.header}
                 </p>
@@ -1425,7 +1480,7 @@ export default function NewCampaignWizard() {
               <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-[11px]">
                 {getRenderedPreviewBody()}
               </p>
-              {activeTemplate.footer && (
+              {activeTemplate && activeTemplate.footer && (
                 <p className="text-[9px] text-muted-foreground italic">
                   {activeTemplate.footer}
                 </p>
@@ -1437,7 +1492,7 @@ export default function NewCampaignWizard() {
             </div>
 
             {/* Action Buttons */}
-            {activeTemplate.buttons && (
+            {activeTemplate && activeTemplate.buttons && (
               <div className="space-y-1">
                 {activeTemplate.buttons.map((btn, i) => (
                   <div

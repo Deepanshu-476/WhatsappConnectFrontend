@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
+import { CreditCard, LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
 import {
   Avatar,
   AvatarFallback,
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { SubscriptionIndicator } from "@/components/billing/trial-banner";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "dashboard",
@@ -73,7 +74,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        <SubscriptionIndicator />
         <ModeToggle />
 
         <DropdownMenu>
@@ -120,6 +122,17 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           >
             <User className="size-4" />
             {t("menuProfile")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            render={
+              <Link
+                href="/settings?tab=billing"
+                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
+              />
+            }
+          >
+            <CreditCard className="size-4" />
+            Billing & Subscription
           </DropdownMenuItem>
           <DropdownMenuItem
             render={

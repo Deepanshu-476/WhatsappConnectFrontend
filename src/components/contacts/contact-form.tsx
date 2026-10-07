@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/data/client';
 import { useAuth } from '@/hooks/use-auth';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
@@ -24,7 +24,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -71,21 +70,17 @@ export function ContactForm({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setName(contact?.name ?? '');
-      setPhone(contact?.phone ?? '');
-      setEmail(contact?.email ?? '');
-      setCompany(contact?.company ?? '');
-      setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
-      setDupMatch(null);
-      fetchTags();
-    }
-  }, [open, contact]);
+  const fetchTags = useCallback(async () => {
+    setLoadingTags(true);
+    const { data } = await backend
+      .from('tags')
+      .select('*')
+      .order('name');
+    if (data) setTags(data);
+    setLoadingTags(false);
+  }, [backend]);
 
-  // Look up an existing contact with this number (new contacts only).
-  // Runs on blur so we don't query on every keystroke.
-  async function checkDuplicate() {
+  const checkDuplicate = useCallback(async () => {
     if (isEdit || !accountId) return;
     const value = phone.trim();
     if (!value) {
@@ -103,17 +98,19 @@ export function ContactForm({
     } finally {
       setCheckingDup(false);
     }
-  }
+  }, [isEdit, accountId, phone, backend]);
 
-  async function fetchTags() {
-    setLoadingTags(true);
-    const { data } = await backend
-      .from('tags')
-      .select('*')
-      .order('name');
-    if (data) setTags(data);
-    setLoadingTags(false);
-  }
+  useEffect(() => {
+    if (open) {
+      setName(contact?.name ?? '');
+      setPhone(contact?.phone ?? '');
+      setEmail(contact?.email ?? '');
+      setCompany(contact?.company ?? '');
+      setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
+      setDupMatch(null);
+      void fetchTags();
+    }
+  }, [open, contact, contactTags, fetchTags]);
 
   function toggleTag(tagId: string) {
     setSelectedTagIds((prev) =>

@@ -1,7 +1,8 @@
 import { NextResponse, after } from 'next/server'
 import { createAdminClient as createClient } from '@/lib/data/admin';
+import type { DataClient } from '@/lib/data/types';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
+import { getMediaUrl } from '@/lib/whatsapp/meta-api'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import {
@@ -30,8 +31,7 @@ import {
 export const maxDuration = 60
 
 // Lazy-initialized to avoid build-time crash when env vars are missing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null
+let _adminClient: DataClient | null = null
 function dataAdmin() {
   if (!_adminClient) {
     _adminClient = createClient()
@@ -162,8 +162,7 @@ export async function GET(request: Request) {
     // Check if any config's verify_token matches. Also collect the
     // matching row so we can opportunistically upgrade its token to
     // GCM if it was still in the legacy CBC format.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let matchedConfig: any = null
+    let matchedConfig: { id: string; verify_token?: string | null } | null = null
     for (const config of configs) {
       if (!config.verify_token) continue
       try {
@@ -176,7 +175,7 @@ export async function GET(request: Request) {
       }
     }
 
-    if (matchedConfig) {
+    if (matchedConfig && matchedConfig.verify_token) {
       // Fire-and-forget GCM upgrade. Safe to run on every subscribe
       // since it's a no-op once the column is already GCM.
       if (isLegacyFormat(matchedConfig.verify_token)) {
@@ -1190,8 +1189,17 @@ async function parseMessageContent(
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ContactRow = any
+interface ContactRow {
+  id: string
+  account_id?: string
+  name?: string | null
+  phone?: string | null
+  wa_user_id?: string | null
+  wa_parent_user_id?: string | null
+  wa_username?: string | null
+  metadata?: Record<string, unknown> | null
+  [key: string]: unknown
+}
 
 interface ContactOutcome {
   contact: ContactRow
@@ -1299,12 +1307,14 @@ async function findOrCreateContact(
   }
 
   if (existingContact) {
-    const patch = contactIdentityPatch(existingContact, identity)
+    const matchedContact: ContactRow = existingContact
+    let contactToReturn: ContactRow = matchedContact
+    const patch = contactIdentityPatch(matchedContact, identity)
     if (patch) {
       const { data: updated, error: updateError } = await dataAdmin()
         .from('contacts')
         .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('id', existingContact.id)
+        .eq('id', matchedContact.id)
         .select()
         .maybeSingle()
 
@@ -1317,10 +1327,10 @@ async function findOrCreateContact(
           updateError.message
         )
       } else if (updated) {
-        existingContact = updated
+        contactToReturn = updated as ContactRow
       }
     }
-    return { contact: existingContact, wasCreated: false }
+    return { contact: contactToReturn, wasCreated: false }
   }
 
   // Create new contact. account_id is the tenancy column;
@@ -1355,14 +1365,14 @@ async function findOrCreateContact(
       const raced = identity.waUserId
         ? await findContactByWaUserId(accountId, identity.waUserId)
         : null
-      if (raced) return { contact: raced, wasCreated: false }
+      if (raced) return { contact: raced as ContactRow, wasCreated: false }
       if (identity.phone) {
         const racedByPhone = await findExistingContact(
           dataAdmin(),
           accountId,
           identity.phone
         )
-        if (racedByPhone) return { contact: racedByPhone, wasCreated: false }
+        if (racedByPhone) return { contact: racedByPhone as ContactRow, wasCreated: false }
       }
     }
     console.error('Error creating contact:', createError)

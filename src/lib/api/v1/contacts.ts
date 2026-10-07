@@ -200,7 +200,7 @@ export async function setContactTags(
     throw new ContactError('Failed to read contact tags', 500);
   }
   const existing = new Set<string>(
-    (current ?? []).map((r: any) => String(r.tag_id))
+    ((current ?? []) as Array<Record<string, unknown>>).map((row) => String(row.tag_id))
   );
 
   const toAdd = [...desired].filter((id) => !existing.has(id));

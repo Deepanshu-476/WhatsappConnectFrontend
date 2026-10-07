@@ -139,7 +139,7 @@ export function SettingsOverview({
     return () => {
       cancelled = true;
     };
-  }, [user?.id, accountId, canManageMembers]);
+  }, [user, accountId, canManageMembers]);
 
   const displayName = profile?.full_name || profile?.email || t('yourAccount');
   const initial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
@@ -221,6 +221,16 @@ export function SettingsOverview({
       section: 'appearance',
       loading: false,
       subtitle: t('appearance', { mode: cap(mode), theme: themeName }),
+    },
+    {
+      section: 'billing',
+      loading: false,
+      subtitle: 'Manage subscription plan, invoices & tax details',
+    },
+    {
+      section: 'wallet',
+      loading: false,
+      subtitle: 'WhatsApp conversation credits & recharge',
     },
   ];
 

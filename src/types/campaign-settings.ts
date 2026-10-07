@@ -1,7 +1,7 @@
 export interface GeneralCampaignSettings {
   campaignNameFormat: string;
   defaultStatus: 'draft' | 'scheduled';
-  defaultChannelId: string;
+  defaultChannelId: string | null;
   defaultTemplate: string;
   defaultTimezone: string;
   defaultCountry: string;
@@ -152,16 +152,16 @@ export interface WhatsAppChannelItem {
   id: string;
   name: string;
   phoneNumber: string;
-  status: 'connected' | 'disconnected' | 'flagged';
-  qualityRating: 'GREEN' | 'YELLOW' | 'RED';
-  messagingLimit: string;
-  dailyLimit: number;
-  currentUsage: number;
+  status: 'connected' | 'disconnected' | 'flagged' | 'configuration_required' | 'unknown';
+  qualityRating?: 'GREEN' | 'YELLOW' | 'RED';
+  messagingLimit?: string;
+  dailyLimit?: number;
+  currentUsage?: number;
   enabled: boolean;
 }
 
 export interface ChannelSettings {
-  defaultChannelId: string;
+  defaultChannelId: string | null;
   channels: WhatsAppChannelItem[];
 }
 
@@ -172,7 +172,7 @@ export interface IntegrationItem {
   connected: boolean;
   enabled: boolean;
   category: 'messaging' | 'productivity' | 'developer' | 'crm' | 'ecommerce';
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'configuration_required';
 }
 
 export interface IntegrationSettings {

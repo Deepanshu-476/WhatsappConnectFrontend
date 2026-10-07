@@ -377,8 +377,7 @@ function SortableStageRow({
   onColorChange: (v: string) => void;
   onRemove: () => void;
   colors: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stage.id });
@@ -431,8 +430,7 @@ function ColorSwatch({
   value: string;
   onChange: (v: string) => void;
   colors: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [open, setOpen] = useState(false);
   return (

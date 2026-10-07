@@ -55,7 +55,6 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
   const [formPhone, setFormPhone] = useState('');
   const [formPhoneId, setFormPhoneId] = useState('');
   const [formWebhook, setFormWebhook] = useState('/api/webhooks/whatsapp');
-  const [formStatus, setFormStatus] = useState<WhatsAppChannel['status']>('connected');
 
   function openCreate() {
     setActiveChannel(null);
@@ -63,7 +62,6 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
     setFormPhone('');
     setFormPhoneId('');
     setFormWebhook('/api/webhooks/whatsapp');
-    setFormStatus('connected');
     setModalOpen(true);
   }
 
@@ -73,7 +71,6 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
     setFormPhone(ch.phoneNumber);
     setFormPhoneId(ch.phoneNumberId);
     setFormWebhook(ch.webhookUrl || '/api/webhooks/whatsapp');
-    setFormStatus(ch.status);
     setModalOpen(true);
   }
 
@@ -90,7 +87,6 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
               phoneNumber: formPhone.trim(),
               phoneNumberId: formPhoneId.trim() || c.phoneNumberId,
               webhookUrl: formWebhook.trim(),
-              status: formStatus,
             }
           : c,
       );
@@ -101,16 +97,15 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
         phoneNumber: formPhone.trim(),
         phoneNumberId: formPhoneId.trim() || `phone_${Date.now()}`,
         webhookUrl: formWebhook.trim() || '/api/webhooks/whatsapp',
-        status: formStatus,
+        status: 'configuration_required',
         isDefault: channels.length === 0,
-        connectedAt: new Date().toISOString(),
       };
       updated = [...channels, newChannel];
     }
 
     onChange(updated);
     setModalOpen(false);
-    toast.success(activeChannel ? 'Channel configured successfully' : 'WhatsApp Channel connected');
+    toast.success(activeChannel ? 'Channel details saved' : 'Channel saved. Meta verification is still required.');
   }
 
   async function handleTestConnection(channel: WhatsAppChannel) {
@@ -125,10 +120,10 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
       if (res.ok) {
         toast.success(data?.message || 'Connection test succeeded! Channel is active.');
       } else {
-        toast.error(data?.error || 'Channel connection failed');
+        toast.error(data?.message || data?.error || 'Channel connection failed');
       }
     } catch {
-      toast.success(`Connection verified: ${channel.phoneNumber} is receiving webhooks.`);
+      toast.error('Channel connection could not be verified because the backend is unavailable.');
     } finally {
       setTestingChannelId(null);
     }
@@ -178,6 +173,14 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
           <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1 text-[11px] font-medium">
             <Clock className="size-3" />
             Pending
+          </Badge>
+        );
+      case 'configuration_required':
+      case 'unknown':
+        return (
+          <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1 text-[11px] font-medium">
+            <AlertTriangle className="size-3" />
+            Configuration required
           </Badge>
         );
     }
@@ -306,17 +309,11 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                const updated = channels.map((c) =>
-                                  c.id === ch.id ? { ...c, status: 'connected' as const } : c,
-                                );
-                                onChange(updated);
-                                toast.success('Channel re-connected');
-                              }}
-                              className="h-7 text-xs px-2 gap-1 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
+                              onClick={() => handleTestConnection(ch)}
+                              className="h-7 text-xs px-2 gap-1 text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"
                             >
-                              <CheckCircle2 className="size-3" />
-                              Connect
+                              <Activity className="size-3" />
+                              Verify
                             </Button>
                           )}
                         </>
@@ -336,7 +333,7 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
           <DialogHeader>
             <DialogTitle>{activeChannel ? 'Configure WhatsApp Channel' : 'Connect WhatsApp Channel'}</DialogTitle>
             <DialogDescription>
-              Enter channel details. Secrets and tokens are securely tokenized and never exposed in the UI.
+              Enter channel details. The channel remains unverified until Meta credentials are checked by the backend.
             </DialogDescription>
           </DialogHeader>
 
@@ -393,7 +390,7 @@ export function ChannelManager({ channels, onChange, readOnly = false }: Channel
               disabled={!formName.trim() || !formPhone.trim()}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {activeChannel ? 'Save Changes' : 'Connect Channel'}
+              {activeChannel ? 'Save Changes' : 'Save Channel'}
             </Button>
           </DialogFooter>
         </DialogContent>

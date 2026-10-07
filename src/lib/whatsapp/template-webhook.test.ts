@@ -520,8 +520,7 @@ describe('handleTemplateWebhookChange — unknown field', () => {
       // Pretend Meta added a new template_* field we don't know about.
       // The route handler pre-filters via isTemplateWebhookField, but
       // the dispatch should still be safe if the filter is bypassed.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { field: 'message_template_future_field' as any, value: {} },
+      { field: 'message_template_future_field' as unknown as import('./template-webhook').TemplateWebhookChange['field'], value: {} },
       stub,
     );
     expect(calls).toHaveLength(0);
